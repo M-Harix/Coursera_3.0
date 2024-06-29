@@ -1,0 +1,42 @@
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE PROCEDURE StudentReport
+    @MinimumCredit tinyint = NULL,
+    @StartingDate DateTime = NULL, 
+    @EndingDate DateTime = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    WITH StudentCourses AS (
+        SELECT 
+            students.pin AS PIN,
+            CONCAT(students.First_Name, ' ', students.Last_Name) AS StudentName, 
+            courses.name AS CourseName,
+            courses.total_time AS TotalTime, 
+            courses.credit AS Credit,
+            CONCAT(instructors.first_name, ' ', instructors.last_name) AS InstructorName,
+            students_courses_xref.Completion_Date,
+            SUM(courses.credit) OVER (PARTITION BY students.pin) AS TotalCredit
+        FROM students
+        JOIN students_courses_xref ON students.pin = students_courses_xref.student_pin
+        JOIN courses ON students_courses_xref.course_id = courses.id
+        JOIN instructors ON courses.instructor_id = instructors.id 
+    )
+    SELECT 
+        PIN,
+	StudentName, 
+        TotalCredit,
+        CourseName,
+        TotalTime, 
+        Credit,
+        InstructorName
+    FROM StudentCourses
+    WHERE (@MinimumCredit IS NULL OR TotalCredit >= @MinimumCredit)
+      AND (@StartingDate IS NULL OR Completion_Date >= @StartingDate)
+      AND (@EndingDate IS NULL OR Completion_Date <= @EndingDate);
+END
+GO
